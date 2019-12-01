@@ -1,3 +1,5 @@
+"""Utilities to deal with the A2D2 dataset."""
+
 import json
 import os
 import re
@@ -51,10 +53,10 @@ class A2D2TFRecordWriter:
 
     def serialize_image(self, image_path):
         """Serialize given image."""
-        im = np.array(Image.open(image_path, "r"))
+        image = np.array(Image.open(image_path, "r"))
         return {
-            "image/data": self.feature_types["image"](im.tobytes()),
-            "image/shape": self.feature_types["shape"](im.shape),
+            "image/data": self.feature_types["image"](image.tobytes()),
+            "image/shape": self.feature_types["shape"](image.shape),
         }
 
     def serialize_label_masks(self, labels_path):
@@ -68,11 +70,11 @@ class A2D2TFRecordWriter:
 
         Returns `dict` containing the image data and its shape.
         """
-        im = np.array(Image.open(labels_path, "r"))
+        image = np.array(Image.open(labels_path, "r"))
         masks = []
-        for color_code, description in self.class_list.items():
+        for color_code, _ in self.class_list.items():
             color = ImageColor.getrgb(color_code)
-            masks.append(np.all(im == color, axis=-1))
+            masks.append(np.all(image == color, axis=-1))
         masks = np.stack(masks, axis=-1)
         return {
             "label_masks/data": self.feature_types["image"](masks.tobytes()),
