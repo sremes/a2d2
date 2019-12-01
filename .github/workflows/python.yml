@@ -28,3 +28,7 @@ jobs:
       run: |
         pip install pytest
         pytest
+    - name: Lint with pylint
+      run: |
+        pip install pylint
+        pylint a2d2
