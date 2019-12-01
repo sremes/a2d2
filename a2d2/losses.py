@@ -1,16 +1,21 @@
+"""The `losses` module implements loss functions used for semantic segmentation."""
+
 import tensorflow as tf
 
 
 class GeneralizedIoULoss(tf.keras.losses.Loss):
+    """Implements the generalized GIoU loss for semantic segmentation.
+
+    For reference, see: https://arxiv.org/abs/1902.09630
+    """
+
     def call(self, y_true, y_pred):
         """Computes the generalized IoU loss.
-
-        For reference, see: https://arxiv.org/abs/1902.09630
 
         Args:
             y_true: ground truth binary masks with shape (batches, classes, width, height)
             y_pred: predicted binary masks with the same shape as above
-        
+
         Returns:
             The value of the loss.
         """
@@ -28,13 +33,13 @@ class GeneralizedIoULoss(tf.keras.losses.Loss):
         return 1 - giou
 
     @staticmethod
-    def _get_confusion_matrix(y_true, y_pred):
+    def get_confusion_matrix(y_true, y_pred):
         """Computes the confusion matrix between the ground truth and predictions.
 
         Args:
             y_true: ground truth binary masks with shape (batches, classes, width, height)
             y_pred: predicted binary masks with the same shape as above
-        
+
         Returns:
             A tuple containing the true positives, false positives and false negatives.
         """
@@ -44,45 +49,45 @@ class GeneralizedIoULoss(tf.keras.losses.Loss):
         return (true_positives, false_positives, false_negatives)
 
     @staticmethod
-    def _find_smallest_enclosing_rectangle(y_true, y_pred):
+    def find_smallest_enclosing_rectangle(y_true, y_pred):
         """Finds the smallest rectangle that encloses the areas of `y_true` and `y_pred`.
-        
+
         Args:
             y_true: ground truth binary masks with shape (batches, classes, width, height)
             y_pred: predicted binary masks with the same shape as above
-        
+
         Returns:
             A tensor containing the corners of the enclosing rectangle
         """
         # get rectangle for the predictions mask
         predictions_along_x = tf.reduce_sum(y_pred, axis=3)
         predictions_along_y = tf.reduce_sum(y_pred, axis=2)
-        predictions_rectangle = GeneralizedIoULoss._get_enclosing_rectangle(predictions_along_x, predictions_along_y)
+        predictions_rectangle = GeneralizedIoULoss.get_enclosing_rectangle(predictions_along_x, predictions_along_y)
 
         # get rectangle for the ground truth mask
         true_along_x = tf.reduce_sum(y_true, axis=3)
         true_along_y = tf.reduce_sum(y_true, axis=2)
-        true_rectangle = GeneralizedIoULoss._get_enclosing_rectangle(true_along_x, true_along_y)
+        true_rectangle = GeneralizedIoULoss.get_enclosing_rectangle(true_along_x, true_along_y)
 
-        x0 = tf.minimum(predictions_rectangle[0], true_rectangle[0])
-        y0 = tf.minimum(predictions_rectangle[1], true_rectangle[1])
-        x1 = tf.maximum(predictions_rectangle[2], true_rectangle[2])
-        y1 = tf.maximum(predictions_rectangle[3], true_rectangle[3])
+        x_0 = tf.minimum(predictions_rectangle[0], true_rectangle[0])
+        y_0 = tf.minimum(predictions_rectangle[1], true_rectangle[1])
+        x_1 = tf.maximum(predictions_rectangle[2], true_rectangle[2])
+        y_1 = tf.maximum(predictions_rectangle[3], true_rectangle[3])
 
-        return tf.stack([x0, y0, x1, y1], axis=-1)
+        return tf.stack([x_0, y_0, x_1, y_1], axis=-1)
 
     @staticmethod
-    def _get_enclosing_rectangle(predictions_along_x, predictions_along_y, axis=2):
+    def get_enclosing_rectangle(predictions_along_x, predictions_along_y, axis=2):
         """Finds the enclosing rectangle from given x and y marginals."""
-        min_x = GeneralizedIoULoss._find_first_greater_than_zero_element(predictions_along_x, axis=axis)
-        min_y = GeneralizedIoULoss._find_first_greater_than_zero_element(predictions_along_y, axis=axis)
+        min_x = GeneralizedIoULoss.find_first_greater_than_zero_element(predictions_along_x, axis=axis)
+        min_y = GeneralizedIoULoss.find_first_greater_than_zero_element(predictions_along_y, axis=axis)
 
-        max_x = GeneralizedIoULoss._find_first_greater_than_zero_element(
+        max_x = GeneralizedIoULoss.find_first_greater_than_zero_element(
             tf.reverse(predictions_along_x, [axis]), axis=axis
         )
         max_x = tf.shape(predictions_along_x, out_type=tf.int64)[axis] - max_x - 1  # count from the beginning
 
-        max_y = GeneralizedIoULoss._find_first_greater_than_zero_element(
+        max_y = GeneralizedIoULoss.find_first_greater_than_zero_element(
             tf.reverse(predictions_along_y, [axis]), axis=axis
         )
         max_y = tf.shape(predictions_along_y, out_type=tf.int64)[axis] - max_y - 1  # count from the beginning
@@ -90,25 +95,25 @@ class GeneralizedIoULoss(tf.keras.losses.Loss):
         return (min_x, min_y, max_x, max_y)
 
     @staticmethod
-    def _find_first_greater_than_zero_element(y, axis=2):
+    def find_first_greater_than_zero_element(tensor, axis=2):
         """Finds the first element greater than zero on a given `axis`.
 
         Args:
-            y: tensor where to find the elements
+            tensor: tensor where to find the elements
             axis: the axis along which to search
-        
+
         Returns:
             A tensor with the indices where the first element was found.
         """
-        return tf.argmax(tf.cast(tf.greater(y, 0), tf.int64), axis=axis)
+        return tf.argmax(tf.cast(tf.greater(tensor, 0), tf.int64), axis=axis)
 
     @staticmethod
-    def _compute_box_area(box):
+    def compute_box_area(box):
         """Compute are of a box defined by x0, y0, x1, y1 indices.
 
         Args:
             box: tensor with shape (batch, class, x0y0x1y2)
-        
+
         Returns:
             Areas of the boxes
         """
