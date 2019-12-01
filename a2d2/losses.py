@@ -20,13 +20,13 @@ class GeneralizedIoULoss(tf.keras.losses.Loss):
             The value of the loss.
         """
         # Compute IoU
-        true_positives, false_positives, false_negatives = self._get_confusion_matrix(y_true, y_pred)
+        true_positives, false_positives, false_negatives = self.get_confusion_matrix(y_true, y_pred)
         intersection = tf.cast(tf.reduce_sum(true_positives), tf.float32)
         union = tf.cast(tf.reduce_sum(true_positives + false_positives + false_negatives), tf.float32)
         intersection_over_union = intersection / union
         # Compute the enclosing area
-        enclosing_box = self._find_smallest_enclosing_rectangle(y_true, y_pred)
-        enclosing_area = self._compute_box_area(enclosing_box)
+        enclosing_box = self.find_smallest_enclosing_rectangle(y_true, y_pred)
+        enclosing_area = self.compute_box_area(enclosing_box)
         # Compute the loss as `1 - GIoU`
         enclosing_ratio = (enclosing_area - union) / enclosing_area
         giou = intersection_over_union - enclosing_ratio
