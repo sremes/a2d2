@@ -43,6 +43,7 @@ def inputs_and_outputs():
     """Create inputs and outputs for the test model."""
     return np.zeros((32, *INPUT_SHAPE)), np.zeros((32, 1))
 
+
 @pytest.mark.parametrize("model", [model_without_input(), compiled_model()])
 def test_trainer(inputs_and_outputs, model):
     """Tests the trainel class with differently initialized models."""
