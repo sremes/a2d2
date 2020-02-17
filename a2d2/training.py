@@ -4,8 +4,6 @@ from tensorflow.keras import Model
 from tensorflow.keras.losses import Loss
 from tensorflow.keras.optimizers import Optimizer
 
-from typing import Sequence
-
 
 class ModelTrainer:
     """Helper class for training a semantic segmentation model."""
@@ -33,6 +31,6 @@ class ModelTrainer:
         """Make predictions using the model with given inputs."""
         return self.model.predict(inputs, batch_size=batch_size)
 
-    def loss(self, inputs, outputs, batch_size=None):
+    def compute_loss(self, inputs, outputs, batch_size=None):
         """Compute the loss using the given inputs and outputs."""
         return self.model.evaluate(inputs, outputs, batch_size=batch_size)
