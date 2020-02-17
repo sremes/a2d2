@@ -1,8 +1,8 @@
 """Utilities for training semantic segmentation models."""
 import tensorflow as tf
-from tensorflow.keras import Model
-from tensorflow.keras.losses import Loss
-from tensorflow.keras.optimizers import Optimizer
+from tensorflow.keras import Model  # pylint: disable=import-error
+from tensorflow.keras.losses import Loss  # pylint: disable=import-error
+from tensorflow.keras.optimizers import Optimizer  # pylint: disable=import-error
 
 
 class ModelTrainer:
