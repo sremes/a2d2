@@ -18,16 +18,18 @@ class A2D2TFRecordWriter:
         "shape": lambda shape: tf.train.Feature(int64_list=tf.train.Int64List(value=[*shape])),
     }
 
-    def __init__(self, tf_record_file, class_list_path):
+    def __init__(self, tf_record_file, class_list_path, image_size=None):
         """Sets target directory for the TFRecords and reads the class definitions.
 
         Args:
             tf_record_file: path where to save the TFRecord files
             class_list_path: path to a json file giving the class descriptions of the labels
+            image_size: the target image size; no resizing if None
         """
         self.tf_record_file = tf_record_file
         with open(class_list_path, "r") as file:
             self.class_list = json.load(file)
+        self.image_size = image_size
 
     def write_images_to_tf_records(self, image_directory):
         """Writes images from a directory into TFRecords.
@@ -53,7 +55,10 @@ class A2D2TFRecordWriter:
 
     def serialize_image(self, image_path):
         """Serialize given image."""
-        image = np.array(Image.open(image_path, "r"))
+        image = Image.open(image_path, "r")
+        if self.image_size is not None:
+            image = image.resize(self.image_size)
+        image = np.array(image)
         return {
             "image/data": self.feature_types["image"](image.tobytes()),
             "image/shape": self.feature_types["shape"](image.shape),
@@ -70,11 +75,13 @@ class A2D2TFRecordWriter:
 
         Returns `dict` containing the image data and its shape.
         """
-        image = np.array(Image.open(labels_path, "r"))
+        image = Image.open(labels_path, "r")
+        if self.image_size is not None:
+            image = image.resize(self.image_size)
         masks = []
         for color_code, _ in self.class_list.items():
             color = ImageColor.getrgb(color_code)
-            masks.append(np.all(image == color, axis=-1))
+            masks.append(np.all(np.array(image) == color, axis=-1))
         masks = np.stack(masks, axis=-1)
         return {
             "label_masks/data": self.feature_types["image"](masks.tobytes()),
