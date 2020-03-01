@@ -57,4 +57,4 @@ def test_trainer(inputs_and_outputs, model):
     trainer.train(*inputs_and_outputs, batch_size=BATCH_SIZE, num_epochs=200)
 
     weights = model.get_weights()
-    assert (weights[0][0] - 1)**2 < 0.01
+    assert (weights[0][0] - 1) ** 2 < 0.01

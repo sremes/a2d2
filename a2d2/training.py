@@ -10,12 +10,18 @@ class ModelTrainer:
 
     default_optimizer = tf.keras.optimizers.SGD(momentum=0.9)
 
-    def __init__(self, model: Model, loss: Loss, optimizer: Optimizer = None):
+    def __init__(self, model: Model, loss: Loss, optimizer: Optimizer = None, log_dir: str = "logs"):
         """Sets the model to be trained using this class."""
         self.model = model
         self.loss = loss
         self.optimizer = optimizer if optimizer else self.default_optimizer
         self.metrics = []
+        self.callbacks = [
+            tf.keras.callbacks.TerminateOnNaN(),
+            tf.keras.callbacks.CSVLogger(os.path.join(log_dir, "losses.csv")),
+            tf.keras.callbacks.ReduceLROnPlateau(monitor="val_loss", verbose=1, min_delta=1e-4),
+            tf.keras.callbacks.TensorBoard(log_dir=os.path.join(log_dir, "tensorboard")),
+        ]
 
     def train(self, inputs, outputs, batch_size=None, num_epochs=1):
         """Train the model using the given input and output data."""
@@ -25,7 +31,7 @@ class ModelTrainer:
             input_layer = tf.keras.Input(shape=inputs.shape[1:], name="inputs")
             self.model = Model(inputs=input_layer, outputs=self.model(input_layer))
         self.model.compile(optimizer=self.optimizer, loss=self.loss, metrics=self.metrics)
-        self.model.fit(inputs, outputs, batch_size=batch_size, epochs=num_epochs)
+        self.model.fit(inputs, outputs, batch_size=batch_size, epochs=num_epochs, callbacks=self.callbacks)
 
     def predict(self, inputs, batch_size=None):
         """Make predictions using the model with given inputs."""
