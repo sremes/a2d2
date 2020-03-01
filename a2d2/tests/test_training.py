@@ -9,6 +9,7 @@ from a2d2.training import ModelTrainer
 
 
 INPUT_SHAPE = (4,)
+BATCH_SIZE = 32
 
 
 class TrainableModel(tf.keras.Model):  # pylint: disable=too-few-public-methods
@@ -41,7 +42,10 @@ def compiled_model():
 @pytest.fixture
 def inputs_and_outputs():
     """Create inputs and outputs for the test model."""
-    return np.zeros((32, *INPUT_SHAPE)), np.zeros((32, 1))
+    inputs = np.zeros((BATCH_SIZE, *INPUT_SHAPE))
+    inputs[:, 0] = np.arange(0, BATCH_SIZE) / BATCH_SIZE
+    outputs = np.arange(0, BATCH_SIZE)[:, None] / BATCH_SIZE
+    return inputs, outputs
 
 
 @pytest.mark.parametrize("model", [model_without_input(), compiled_model()])
@@ -49,4 +53,8 @@ def test_trainer(inputs_and_outputs, model):
     """Tests the trainel class with differently initialized models."""
     loss = tf.keras.losses.MSE
     trainer = ModelTrainer(model, loss)
-    trainer.train(*inputs_and_outputs)
+
+    trainer.train(*inputs_and_outputs, batch_size=BATCH_SIZE, num_epochs=200)
+
+    weights = model.get_weights()
+    assert (weights[0][0] - 1) ** 2 < 0.01
