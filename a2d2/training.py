@@ -1,4 +1,6 @@
 """Utilities for training semantic segmentation models."""
+import os
+
 import tensorflow as tf
 from tensorflow.keras import Model  # pylint: disable=import-error
 from tensorflow.keras.losses import Loss  # pylint: disable=import-error
