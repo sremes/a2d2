@@ -22,10 +22,10 @@ class A2D2TFRecord:  # pylint: disable=too-few-public-methods
     # Feature labels and their types
     features = {
         "label_masks/packed_data": tf.io.FixedLenFeature(shape=(), dtype=tf.string),
-        "label_masks/packed_shape":  tf.io.FixedLenFeature(shape=(3,), dtype=tf.int64),
-        "label_masks/shape":  tf.io.FixedLenFeature(shape=(3,), dtype=tf.int64),
-        "image/data":  tf.io.FixedLenFeature(shape=(), dtype=tf.string),
-        "image/shape":  tf.io.FixedLenFeature(shape=(3,), dtype=tf.int64),
+        "label_masks/packed_shape": tf.io.FixedLenFeature(shape=(3,), dtype=tf.int64),
+        "label_masks/shape": tf.io.FixedLenFeature(shape=(3,), dtype=tf.int64),
+        "image/data": tf.io.FixedLenFeature(shape=(), dtype=tf.string),
+        "image/shape": tf.io.FixedLenFeature(shape=(3,), dtype=tf.int64),
     }
 
 
@@ -143,7 +143,7 @@ class A2D2TFRecordWriter:
 class A2D2TFRecordReader:
     """TFRecord dataset reader."""
 
-    def __init__(self, filename, batch_size, buffer_size=2**30):
+    def __init__(self, filename, batch_size, buffer_size=2 ** 30):
         """Initialize variables for the reader.
 
         Args:
@@ -159,7 +159,7 @@ class A2D2TFRecordReader:
         """Get the TF dataset that consists of the extracted data from the TFRecords."""
         dataset = tf.data.TFRecordDataset(self.filename, buffer_size=self.buffer_size)
         dataset = dataset.map(self.parse_example)
-        dataset = dataset.shuffle(buffer_size=16*self.batch_size).batch(batch_size=self.batch_size)
+        dataset = dataset.shuffle(buffer_size=16 * self.batch_size).batch(batch_size=self.batch_size)
         return dataset
 
     def parse_example(self, serialized_example):
