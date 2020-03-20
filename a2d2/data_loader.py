@@ -1,5 +1,6 @@
 """Utilities to deal with the A2D2 dataset."""
 
+import io
 import json
 import os
 import re
@@ -9,25 +10,40 @@ from PIL import Image, ImageColor
 import tensorflow as tf
 
 
-class A2D2TFRecordWriter:
-    """Write TFRecords from the raw A2D2 dataset."""
+class A2D2TFRecord:  # pylint: disable=too-few-public-methods
+    """Feature types and labels that are used in the TFRecord files."""
 
-    # Define features used within the tf.Examples
+    # Define feature types used within the tf.Examples
     feature_types = {
         "image": lambda image: tf.train.Feature(bytes_list=tf.train.BytesList(value=[image])),
         "shape": lambda shape: tf.train.Feature(int64_list=tf.train.Int64List(value=[*shape])),
     }
 
-    def __init__(self, tf_record_file, class_list_path):
+    # Feature labels and their types
+    features = {
+        "label_masks/packed_data": tf.io.FixedLenFeature(shape=(), dtype=tf.string),
+        "label_masks/packed_shape": tf.io.FixedLenFeature(shape=(3,), dtype=tf.int64),
+        "label_masks/shape": tf.io.FixedLenFeature(shape=(3,), dtype=tf.int64),
+        "image/data": tf.io.FixedLenFeature(shape=(), dtype=tf.string),
+        "image/shape": tf.io.FixedLenFeature(shape=(3,), dtype=tf.int64),
+    }
+
+
+class A2D2TFRecordWriter:
+    """Write TFRecords from the raw A2D2 dataset."""
+
+    def __init__(self, tf_record_file, class_list_path, image_size=None):
         """Sets target directory for the TFRecords and reads the class definitions.
 
         Args:
             tf_record_file: path where to save the TFRecord files
             class_list_path: path to a json file giving the class descriptions of the labels
+            image_size: the target image size; no resizing if None
         """
         self.tf_record_file = tf_record_file
         with open(class_list_path, "r") as file:
             self.class_list = json.load(file)
+        self.image_size = image_size
 
     def write_images_to_tf_records(self, image_directory):
         """Writes images from a directory into TFRecords.
@@ -53,10 +69,14 @@ class A2D2TFRecordWriter:
 
     def serialize_image(self, image_path):
         """Serialize given image."""
-        image = np.array(Image.open(image_path, "r"))
+        image = Image.open(image_path, "r")
+        if self.image_size is not None:
+            image = image.resize(self.image_size)
+        image_bytes = io.BytesIO()
+        image.save(image_bytes, format="png")
         return {
-            "image/data": self.feature_types["image"](image.tobytes()),
-            "image/shape": self.feature_types["shape"](image.shape),
+            "image/data": A2D2TFRecord.feature_types["image"](image_bytes.getvalue()),
+            "image/shape": A2D2TFRecord.feature_types["shape"](np.array(image).shape),
         }
 
     def serialize_label_masks(self, labels_path):
@@ -70,15 +90,20 @@ class A2D2TFRecordWriter:
 
         Returns `dict` containing the image data and its shape.
         """
-        image = np.array(Image.open(labels_path, "r"))
+        image = Image.open(labels_path, "r")
+        if self.image_size is not None:
+            image = image.resize(self.image_size)
         masks = []
         for color_code, _ in self.class_list.items():
             color = ImageColor.getrgb(color_code)
-            masks.append(np.all(image == color, axis=-1))
+            masks.append(np.all(np.array(image) == color, axis=-1))
         masks = np.stack(masks, axis=-1)
+        masks_packed = np.packbits(masks, axis=0)
+        # pylint: disable=no-member
         return {
-            "label_masks/data": self.feature_types["image"](masks.tobytes()),
-            "label_masks/shape": self.feature_types["shape"](masks.shape),
+            "label_masks/packed_data": A2D2TFRecord.feature_types["image"](masks_packed.tobytes()),
+            "label_masks/packed_shape": A2D2TFRecord.feature_types["shape"](masks_packed.shape),
+            "label_masks/shape": A2D2TFRecord.feature_types["shape"](masks.shape),
         }
 
     @staticmethod
@@ -113,3 +138,52 @@ class A2D2TFRecordWriter:
                     "image": os.path.join(image_directory, image_name),
                     "label_masks": os.path.join(labels_directory, labels_name),
                 }
+
+
+class A2D2TFRecordReader:
+    """TFRecord dataset reader."""
+
+    def __init__(self, filename, batch_size, buffer_size=2 ** 30):
+        """Initialize variables for the reader.
+
+        Args:
+            filename: path to the TFRecord file
+            batch_size: batch size used in training
+            buffer_size: buffer size in bytes used in the reader
+        """
+        self.filename = filename
+        self.batch_size = batch_size
+        self.buffer_size = buffer_size
+
+    def get_dataset(self):
+        """Get the TF dataset that consists of the extracted data from the TFRecords."""
+        dataset = tf.data.TFRecordDataset(self.filename, buffer_size=self.buffer_size)
+        dataset = dataset.map(self.parse_example)
+        dataset = dataset.shuffle(buffer_size=16 * self.batch_size).batch(batch_size=self.batch_size)
+        return dataset
+
+    def parse_example(self, serialized_example):
+        """Parse a single example of data in TFRecords."""
+        example = tf.io.parse_single_example(serialized_example, A2D2TFRecord.features)
+        image = self.decode_image(example)
+        label_masks = self.decode_masks(example)
+        return image, label_masks
+
+    @staticmethod
+    def decode_image(example):
+        """Decode image from binary input."""
+        image = tf.io.decode_png(example["image/data"])
+        return image
+
+    @staticmethod
+    def decode_masks(example):
+        """Decode binary packed label mask input."""
+        packed_masks = example["label_masks/packed_data"]
+        masks_shape = example["label_masks/shape"]
+
+        def unpack_data(bytes_string, shape):
+            unpacked = np.unpackbits(np.frombuffer(bytes_string, dtype=np.uint8), axis=0)
+            return np.reshape(unpacked, shape)
+
+        masks = tf.numpy_function(unpack_data, [packed_masks, masks_shape], tf.uint8)
+        return masks

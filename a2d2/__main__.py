@@ -8,7 +8,10 @@ import a2d2.data_loader
 
 def write_tf_records(args):
     """Run TFRecord writer with given arguments."""
-    writer = a2d2.data_loader.A2D2TFRecordWriter(args.output, os.path.join(args.datadir, "class_list.json"))
+    image_size = None
+    if args.image_size is not None:
+        image_size = tuple(map(int, args.image_size.split("x")))  # parse "100x100" like string
+    writer = a2d2.data_loader.A2D2TFRecordWriter(args.output, os.path.join(args.datadir, "class_list.json"), image_size)
     writer.write_images_to_tf_records(args.datadir)
 
 
@@ -21,6 +24,7 @@ def parse_arguments():
     parser_tf_records = sub_parsers.add_parser("write_tf_records")
     parser_tf_records.add_argument("--datadir", default="camera_lidar_semantic")
     parser_tf_records.add_argument("--output", default="records")
+    parser_tf_records.add_argument("--image_size", default=None)
     parser_tf_records.set_defaults(function=write_tf_records)
 
     return parser.parse_args()
