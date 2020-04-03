@@ -21,11 +21,14 @@ class ModelTrainer:
         self.callbacks = [
             tf.keras.callbacks.TerminateOnNaN(),
             tf.keras.callbacks.CSVLogger(os.path.join(log_dir, "losses.csv")),
-            tf.keras.callbacks.ReduceLROnPlateau(monitor="val_loss", verbose=1, min_delta=1e-4),
+            tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", verbose=1, min_delta=1e-4),
             tf.keras.callbacks.TensorBoard(log_dir=os.path.join(log_dir, "tensorboard")),
+            tf.keras.callbacks.ModelCheckpoint(
+                os.path.join(log_dir, "model_weights.{epoch:02d}-{loss:.3f}.h5"), save_weights_only=True, save_freq=1800
+            ),
         ]
 
-    def train(self, inputs, outputs, batch_size=None, num_epochs=1):
+    def train(self, inputs, outputs=None, batch_size=None, num_epochs=1):
         """Train the model using the given input and output data."""
         try:
             self.model.get_layer(name="inputs")
