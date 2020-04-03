@@ -52,7 +52,8 @@ def inputs_and_outputs():
 def test_trainer(inputs_and_outputs, model):
     """Tests the trainel class with differently initialized models."""
     loss = tf.keras.losses.MSE
-    trainer = ModelTrainer(model, loss)
+    optimizer = tf.keras.optimizers.SGD(learning_rate=0.1, momentum=0.9)
+    trainer = ModelTrainer(model=model, loss=loss, optimizer=optimizer)
 
     trainer.train(*inputs_and_outputs, batch_size=BATCH_SIZE, num_epochs=200)
 
